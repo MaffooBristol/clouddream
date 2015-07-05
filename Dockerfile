@@ -9,6 +9,7 @@ ENV PATH $PATH:/opt/caffe/.build_release/tools
 # Get dependencies
 RUN apt-get update && apt-get install -y \
   bc \ 
+  caca-utils \
   cmake \ 
   curl \ 
   gcc-4.6 \ 
@@ -31,13 +32,15 @@ RUN apt-get update && apt-get install -y \
   protobuf-compiler \ 
   python-dev \  
   python-pip \ 
+  sshfs \
   unzip \
   wget \
   python-numpy \
   python-scipy \
   python-pandas \
   python-sympy \
-  python-nose
+  python-nose \
+  vim
 
 # Use gcc 4.6
 RUN update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-4.6 30 && \

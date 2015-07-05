@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # imports and basic notebook setup
 from cStringIO import StringIO
 import numpy as np
@@ -8,6 +10,33 @@ from IPython.display import clear_output, Image, display
 from google.protobuf import text_format
 
 import caffe
+
+import sys, argparse
+
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('infile')
+parser.add_argument('outfile', default='output.jpg')
+parser.add_argument('--step-size', type=float, default=1.5)
+parser.add_argument('--jitter', type=int, default=32)
+parser.add_argument('--iterations', type=int, default=10)
+parser.add_argument('--octaves', type=int, default=4)
+parser.add_argument('--octave-scale', type=float, default=1.4)
+parser.add_argument('--resamples', type=int, default=0)
+parser.add_argument('--max-width', type=int)
+
+args = parser.parse_args()
+
+inputFile = args.infile if args.infile else 'input.jpg'
+outputFile = args.outfile if args.outfile else 'output.jpg'
+
+stepSize = args.step_size
+jitter = args.jitter
+
+iterations = args.iterations
+octaves = args.octaves
+octaveScale = args.octave_scale
+
+resamples = args.resamples
 
 def showarray(a, fmt='jpeg'):
     a = np.uint8(np.clip(a, 0, 255))
@@ -41,7 +70,7 @@ def preprocess(net, img):
 def deprocess(net, img):
     return np.dstack((img + net.transformer.mean['data'])[::-1])
 
-def make_step(net, step_size=1.5, end='inception_4c/output', jitter=32, clip=True):
+def make_step(net, step_size=stepSize, end='inception_4c/output', jitter=jitter, clip=True):
     '''Basic gradient ascent step.'''
 
     src = net.blobs['data'] # input image is storred in Net's 'data' blob
@@ -63,7 +92,7 @@ def make_step(net, step_size=1.5, end='inception_4c/output', jitter=32, clip=Tru
         bias = net.transformer.mean['data']
         src.data[:] = np.clip(src.data, -bias, 255-bias)    
 
-def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='inception_4c/output', clip=True, **step_params):
+def deepdream(net, base_img, iter_n=iterations, octave_n=octaves, octave_scale=octaveScale, end='inception_4c/output', clip=True, **step_params):
     # prepare base images for all octaves
     octaves = [preprocess(net, base_img)]
     for i in xrange(octave_n-1):
@@ -97,8 +126,8 @@ def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4, end='incep
     return deprocess(net, src.data[0])
 
 
-maxwidth = json_data['maxwidth']
-img = PIL.Image.open('input.jpg')
+maxwidth = args.max_width if 'max-width' in args else json_data['maxwidth']
+img = PIL.Image.open(inputFile)
 width = img.size[0]
 
 if width > maxwidth:
@@ -109,18 +138,20 @@ if width > maxwidth:
 img = np.float32(img)
 
 frame = img
-#frame_i = 0
+frame_i = 0
 
 frame = deepdream(net, frame, end=json_data['layer'])
 #frame = deepdream(net, img, end='inception_3b/5x5_reduce')
 #frame = deepdream(net, img, end='conv2/3x3')
 
-PIL.Image.fromarray(np.uint8(frame)).save("output.jpg")
+PIL.Image.fromarray(np.uint8(frame)).save(outputFile)
 
-#h, w = frame.shape[:2]
-#s = 0.05 # scale coefficient
-#for i in xrange(100):
-#    frame = deepdream(net, frame)
-#    PIL.Image.fromarray(np.uint8(frame)).save("output/%04d.jpg"%frame_i)
-#    frame = nd.affine_transform(frame, [1-s,1-s,1], [h*s/2,w*s/2,0], order=1)
-#    frame_i += 1
+if resamples > 0:
+
+	h, w = frame.shape[:2]
+	s = 0.05 # scale coefficient
+	for i in xrange(resamples):
+	    frame = deepdream(net, frame)
+	    PIL.Image.fromarray(np.uint8(frame)).save("frames/%04d.jpg"%frame_i)
+	    frame = nd.affine_transform(frame, [1-s,1-s,1], [h*s/2,w*s/2,0], order=1)
+	    frame_i += 1
